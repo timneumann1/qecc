@@ -569,7 +569,10 @@ def measure_flagged(
     measurement_bit: Clbit,
     t: int,
     z_measurement: bool = True,
-) -> None:
+    flag_register: AncillaRegister = None, 
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
+) -> int:
     """Measure a w-flagged stabilizer.
 
     The measurement is done in place.
@@ -582,15 +585,20 @@ def measure_flagged(
         measurement_bit: Classical bit to store the measurement result of the ancilla.
         t: The number of errors to protect against.
         z_measurement: Whether to measure the ancilla in the Z basis.
+        flag_register: Global flag register 
+        flag_meas_register: Classical register for measurement bits of global flag register
+        flags_used: Number of flags already used (in order to determine correct indexing)
     """
     w = len(stab)
     if w < 3:
         measure_stab_unflagged(qc, stab, ancilla, measurement_bit, z_measurement)
-        return
+        return 0
 
     if t == 1:
-        measure_one_flagged(qc, stab, ancilla, measurement_bit, z_measurement)
-        return
+    
+    # !!! Currently, we only need to pass the flag register to this function
+        measure_one_flagged(qc, stab, ancilla, measurement_bit, z_measurement, flag_register, flag_meas_register, flags_used)
+        return flags_used+1
 
     if w == 4 and t >= 2:
         measure_two_flagged_4(qc, stab, ancilla, measurement_bit, z_measurement)
@@ -635,17 +643,19 @@ def measure_one_flagged(
     ancilla: AncillaQubit,
     measurement_bit: Clbit,
     z_measurement: bool = True,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a 1-flagged stabilizer.
 
     In this case only one flag is required.
     """
-    flag_reg = AncillaRegister(1)
-    meas_reg = ClassicalRegister(1)
-    qc.add_register(flag_reg)
-    qc.add_register(meas_reg)
-    flag = flag_reg[0]
-    flag_meas = meas_reg[0]
+    
+    # No need to create the registers again, simply place the qubits at the current index
+    flag = flag_reg[flags_used]
+    flag_meas = flag_meas_register[flags_used]
+    
     if not z_measurement:
         qc.h(ancilla)
 

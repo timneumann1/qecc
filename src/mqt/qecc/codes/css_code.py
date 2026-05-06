@@ -48,7 +48,7 @@ class CSSCode(StabilizerCode):
             return
 
         self._check_valid_check_matrices(Hx, Hz)
-
+        
         if Hx is None:
             assert Hz is not None
             self.n = Hz.shape[1]
@@ -220,7 +220,6 @@ class CSSCode(StabilizerCode):
         if code_name in paths:
             hx = np.load(paths[code_name] / "hx.npy")
             hz = np.load(paths[code_name] / "hz.npy")
-
             if code_name in distances:
                 x_distance, z_distance = distances[code_name]
                 distance = min(x_distance, z_distance)

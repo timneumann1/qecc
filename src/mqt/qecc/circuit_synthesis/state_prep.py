@@ -44,7 +44,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class FaultyStatePrepCircuit:
     """Represents a state preparation circuit for a CSS code."""
 
-    def __init__(self, circ: CNOTCircuit, max_x_errors: int, max_z_errors: int) -> None:
+    def __init__(self, circ: CNOTCircuit, max_x_errors: int, max_z_errors: int, code=None) -> None:
         """Initialize a state preparation circuit.
 
         Args:
@@ -125,7 +125,7 @@ class FaultyStatePrepCircuit:
         if reduce:
             logger.info("Removing stabilizer equivalent faults.")
             fs.remove_equivalent(stabs)
-
+            
         logger.info("Removing low-weight faults.")
         fs.filter_by_weight_at_least(num_errors + 1, stabs)
         fault_sets.append(fs)
@@ -210,7 +210,7 @@ def heuristic_prep_circuit(
     checks = code.Hx if zero_state else code.Hz
     assert checks is not None
     checks, cnots = heuristic_gaussian_elimination(checks, parallel_elimination=optimize_depth)
-
+    
     circ = _build_state_prep_circuit_from_back(checks, cnots, zero_state)
     return FaultyStatePrepCircuit(circ, code.x_distance // 2, code.z_distance // 2)
 
@@ -356,7 +356,6 @@ def all_gate_optimal_verification_stabilizers(
     for layer in range(n_layers):
         logger.info(f"Finding verification stabilizers for {layer + 1} errors")
         faults = fault_sets[layer]
-
         if len(faults) == 0:
             logger.info(f"No non-trivial faults for {layer + 1} errors")
             layers[layer] = []
@@ -454,7 +453,6 @@ def _verification_circuit(
     flag_first_layer: bool = False,
 ) -> QuantumCircuit:
     logger.info("Finding verification stabilizers for the state preparation circuit")
-
     sp_circ.compute_fault_sets(reduce=True)
     if verify_x_first:
         first_fault_sets = sp_circ.x_fault_sets
@@ -525,7 +523,7 @@ def gate_optimal_verification_circuit(
     Returns:
         QuantumCircuit combining the state preparation and verification circuit.
     """
-
+    
     def verification_stabs_fun(
         fault_sets: list[PureFaultSet], stabs: npt.NDArray[np.int8]
     ) -> list[list[npt.NDArray[np.int8]]]:
@@ -713,24 +711,14 @@ def _heuristic_layer(
     return measurements
 
 
-def _measure_ft_x(
-    qc: QuantumCircuit,
-    x_measurements: npt.NDArray[np.int8],
-    t: int,
-    flags: bool = False,
-) -> None:
-    if len(x_measurements) == 0:
-        return
-    num_x_anc = len(x_measurements)
-    x_anc = AncillaRegister(num_x_anc, "x_anc")
-    x_c = ClassicalRegister(num_x_anc, "x_c")
-    qc.add_register(x_anc)
-    qc.add_register(x_c)
+def _measure_ft_x(qc: QuantumCircuit, x_anc: AncillaRegister, x_c: ClassicalRegister, x_measurements: npt.NDArray[np.int8], t: int, flags: bool = False,
+                  flag_register: AncillaRegister = None, flag_meas_register: ClassicalRegister = None, flags_used: int = 0) -> None:
+   
 
     for i, m in enumerate(x_measurements):
         stab = np.where(m != 0)[0]
         if flags:
-            measure_flagged(qc, stab, x_anc[i], x_c[i], z_measurement=False, t=t)
+            flags_used = measure_flagged(qc, stab, x_anc[i], x_c[i], z_measurement=False, t=t, flag_register = flag_register, flag_meas_register = flag_meas_register, flags_used = flags_used)
         else:
             qc.h(x_anc[i])
             qc.cx([x_anc[i]] * len(stab), stab)
@@ -738,22 +726,19 @@ def _measure_ft_x(
             qc.measure(x_anc[i], x_c[i])
 
 
-def _measure_ft_z(qc: QuantumCircuit, z_measurements: npt.NDArray[np.int8], t: int, flags: bool = False) -> None:
-    if len(z_measurements) == 0:
-        return
-    num_z_anc = len(z_measurements)
-    z_anc = AncillaRegister(num_z_anc, "z_anc")
-    z_c = ClassicalRegister(num_z_anc, "z_c")
-    qc.add_register(z_anc)
-    qc.add_register(z_c)
+def _measure_ft_z(qc: QuantumCircuit, z_anc: AncillaRegister, z_c: ClassicalRegister, z_measurements: npt.NDArray[np.int8], t: int, flags: bool = False,
+                   flag_register: AncillaRegister = None, flag_meas_register: ClassicalRegister = None, flags_used: int = 0) -> int:
+    
+    # Needs to return the number of used flags to pass to _measure_ft_x
 
     for i, m in enumerate(z_measurements):
         stab = np.where(m != 0)[0]
         if flags:
-            measure_flagged(qc, stab, z_anc[i], z_c[i], z_measurement=True, t=t)
+            flags_used = measure_flagged(qc, stab, z_anc[i], z_c[i], z_measurement=True, t=t, flag_register = flag_register, flag_meas_register = flag_meas_register, flags_used = flags_used)
         else:
             qc.cx(stab, [z_anc[i]] * len(stab))
     qc.measure(z_anc, z_c)
+    return flags_used
 
 
 def _measure_ft_stabs(
@@ -768,14 +753,43 @@ def _measure_ft_stabs(
     measured_circ = QuantumCircuit(q)
     measured_circ.compose(sp_circ.circ.to_qiskit_circuit(), inplace=True)
 
+# ORddering is z_anc, x_anc then flag qubits
+    # Preallocate a flag register with n_flags qubits
+    # Determine number of flags by running circuit once with some upper bound register size
+    
+    if len(z_measurements) != 0:
+        num_z_anc = len(z_measurements)
+        z_anc = AncillaRegister(num_z_anc, "z_anc")
+        z_c = ClassicalRegister(num_z_anc, "z_c")
+        measured_circ.add_register(z_anc)
+        measured_circ.add_register(z_c)
+    if len(x_measurements) != 0:
+            
+        num_x_anc = len(x_measurements)
+        x_anc = AncillaRegister(num_x_anc, "x_anc")
+        x_c = ClassicalRegister(num_x_anc, "x_c")
+        measured_circ.add_register(x_anc)
+        measured_circ.add_register(x_c)
+    
+    n_flags = 5
+    flag_reg = AncillaRegister(n_flags, "flag")
+    flag_meas_reg = ClassicalRegister(n_flags)
+    num_flags_used = 0
+    
+    measured_circ.add_register(flag_reg)
+    measured_circ.add_register(flag_meas_reg)
+    
     if verify_x_first:
-        _measure_ft_z(measured_circ, z_measurements, t=sp_circ.max_z_errors, flags=flag_first_layer)
-        _measure_ft_x(measured_circ, x_measurements, flags=True, t=sp_circ.max_x_errors)
+        if len(z_measurements) != 0:
+            num_flags_used = _measure_ft_z(measured_circ, z_anc, z_c, z_measurements, t=sp_circ.max_z_errors, flags=flag_first_layer, flag_register = flag_reg, flag_meas_register = flag_meas_reg, flags_used = num_flags_used)
+        if len(x_measurements) != 0:
+            _measure_ft_x(measured_circ, x_anc, x_c, x_measurements, flags=True, t=sp_circ.max_x_errors, flag_register = flag_reg, flag_meas_register = flag_meas_reg, flags_used = num_flags_used)
 
     else:
+        raise NotImplementedError(f"Currently, only {verify_x_first} is implemented.")
         _measure_ft_x(measured_circ, x_measurements, flags=flag_first_layer, t=sp_circ.max_x_errors)
-        _measure_ft_z(measured_circ, z_measurements, t=sp_circ.max_z_errors)
-
+        _measure_ft_z(measured_circ, z_measurements, t=sp_circ.max_z_errors)    
+    
     return measured_circ
 
 
@@ -845,7 +859,6 @@ def all_verification_stabilizers(
             for error in fault_set
         ])
     )
-
     # assert that not too many CNOTs are used
     solver.add(z3.PbLe([(measurement[q], 1) for measurement in measurement_stabs for q in range(n_qubits)], num_cnots))
 
