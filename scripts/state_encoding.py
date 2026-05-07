@@ -1,10 +1,8 @@
 #import numpy as np
 import logging
-#from mqt.qecc import CSSCode
-#from mqt.qecc.circuit_synthesis import gate_optimal_prep_circuit, heuristic_prep_circuit
-from mqt.qecc.circuit_synthesis import gate_optimal_verification_circuit, heuristic_verification_circuit
-#from mqt.qecc.circuit_synthesis import VerificationNDFTStatePrepSimulator, CircuitLevelNoiseIdlingParallel
-from mqt.qecc.circuit_synthesis import CNOTCircuit, FaultyStatePrepCircuit
+from mqt.qecc import CSSCode
+from mqt.qecc.circuit_synthesis import gate_optimal_prep_circuit, heuristic_prep_circuit
+#from mqt.qecc.circuit_synthesis import CNOTCircuit, FaultyStatePrepCircuit
 
 import qiskit.qasm2
 import sys
@@ -18,14 +16,17 @@ logging.getLogger("mqt.qecc").setLevel(logging.INFO)
 def main() -> None:
     
     if len(sys.argv)>1:    
-        qasm = sys.argv[1]
+        hx = sys.argv[1]
         
     try:
-        non_ft_sp = qiskit.qasm2.loads(qasm)
-        non_ft_sp = CNOTCircuit.from_qiskit_circuit(non_ft_sp, init_all = True)
-        non_ft_sp = FaultyStatePrepCircuit(non_ft_sp,1,1)
-        ft_sp = gate_optimal_verification_circuit(non_ft_sp)
-        print(qiskit.qasm2.dumps(ft_sp))
+        # Need to pass read X stabilisers from julia script as npt.NDArray[np.int8] 
+        
+        code = CSSCode(hx)
+        
+        encoding_circ = gate_optimal_prep_circuit(code, zero_state=True, max_timeout=3600)
+        #encoding_circ = heuristic_prep_circuit(code, zero_state=True)
+                
+        print(qiskit.qasm2.dumps(encoding_circ)) # return the qasm string
         sys.exit(0)
         
     except Exception as e:
