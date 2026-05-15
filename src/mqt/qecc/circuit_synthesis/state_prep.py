@@ -753,10 +753,7 @@ def _measure_ft_stabs(
     measured_circ = QuantumCircuit(q)
     measured_circ.compose(sp_circ.circ.to_qiskit_circuit(), inplace=True)
 
-# ORddering is z_anc, x_anc then flag qubits
-    # Preallocate a flag register with n_flags qubits
-    # Determine number of flags by running circuit once with some upper bound register size
-    
+    # We choose the following ordering of registers: z_anc, x_anc, flag    
     if len(z_measurements) != 0:
         num_z_anc = len(z_measurements)
         z_anc = AncillaRegister(num_z_anc, "z_anc")
@@ -771,6 +768,7 @@ def _measure_ft_stabs(
         measured_circ.add_register(x_anc)
         measured_circ.add_register(x_c)
     
+    # Preallocate a flag register with n_flags qubits, where n_flags is some upper-bound register size (will be accounted for in Julia code)
     n_flags = 5
     flag_reg = AncillaRegister(n_flags, "flag")
     flag_meas_reg = ClassicalRegister(n_flags)

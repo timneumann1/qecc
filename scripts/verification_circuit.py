@@ -12,16 +12,20 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s: %(message)s",
 )
 logging.getLogger("mqt.qecc").setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 def main() -> None:
     
-    if len(sys.argv)>1:    
+    if len(sys.argv)>2:    
         qasm = sys.argv[1]
+        distance = int(sys.argv[2])
+        # For the verificaiton circuit, the distance is used to determine the max number of errors, which is in turn used to determine the fault sets etc.
         
     try:
         non_ft_sp = qiskit.qasm2.loads(qasm)
         non_ft_sp = CNOTCircuit.from_qiskit_circuit(non_ft_sp, init_all = True)
-        non_ft_sp = FaultyStatePrepCircuit(non_ft_sp,1,1) # we fix max_x_errors = max_z_errors = 1, since we are working with distance=3 codes
+        logger.info(f"Initialising FaultyStatePrepCircuit with max_errors = {distance//2}")
+        non_ft_sp = FaultyStatePrepCircuit(non_ft_sp, distance//2, distance//2) 
         ft_sp = gate_optimal_verification_circuit(non_ft_sp)
         print(qiskit.qasm2.dumps(ft_sp))
         sys.exit(0)
