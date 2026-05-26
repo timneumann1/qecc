@@ -714,7 +714,7 @@ def _heuristic_layer(
 def _measure_ft_x(qc: QuantumCircuit, x_anc: AncillaRegister, x_c: ClassicalRegister, x_measurements: npt.NDArray[np.int8], t: int, flags: bool = False,
                   flag_register: AncillaRegister = None, flag_meas_register: ClassicalRegister = None, flags_used: int = 0) -> None:
    
-
+    # Needs to keep track of used flags but does not need to return the number
     for i, m in enumerate(x_measurements):
         stab = np.where(m != 0)[0]
         if flags:
@@ -768,8 +768,8 @@ def _measure_ft_stabs(
         measured_circ.add_register(x_anc)
         measured_circ.add_register(x_c)
     
-    # Preallocate a flag register with n_flags qubits, where n_flags is some upper-bound register size (will be accounted for in Julia code)
-    n_flags = 5
+    # Preallocate a flag register with n_flags qubits, where n_flags is some upper-bound register size (will be accounted for in Julia)
+    n_flags = 75
     flag_reg = AncillaRegister(n_flags, "flag")
     flag_meas_reg = ClassicalRegister(n_flags)
     num_flags_used = 0

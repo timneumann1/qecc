@@ -592,46 +592,56 @@ def measure_flagged(
     w = len(stab)
     if w < 3:
         measure_stab_unflagged(qc, stab, ancilla, measurement_bit, z_measurement)
-        return 0
+        logger.info(f"Unflagged stabiliser measurement, total flags used: {flags_used}")
+        return flags_used
 
     if t == 1:
     
-    # !!! Currently, we only need to pass the flag register to this function
         measure_one_flagged(qc, stab, ancilla, measurement_bit, z_measurement, flag_register, flag_meas_register, flags_used)
+        logger.info(f"One-flagged stabiliser measurement, total flags used: {flags_used+1}")
         return flags_used+1
 
     if w == 4 and t >= 2:
-        measure_two_flagged_4(qc, stab, ancilla, measurement_bit, z_measurement)
-        return
+        measure_two_flagged_4(qc, stab, ancilla, measurement_bit, z_measurement, flag_register, flag_meas_register, flags_used)
+        logger.info(f"Two-flagged stabiliser measurement, total flags used: {flags_used+1}")
+        return flags_used+1
 
     if w in {5, 6}:
         weight_5 = w == 5
         if t == 2:
-            measure_two_flagged_5_or_6(qc, stab, ancilla, measurement_bit, z_measurement, weight_5)
-            return
-        measure_w_flagged_5_or_6(qc, stab, ancilla, measurement_bit, z_measurement, weight_5)
-        return
+            measure_two_flagged_5_or_6(qc, stab, ancilla, measurement_bit, z_measurement, weight_5, flag_register, flag_meas_register, flags_used)
+            logger.info(f"Two-flagged stabiliser measurement, total flags used: {flags_used+2}")
+            return flags_used+2
+        measure_w_flagged_5_or_6(qc, stab, ancilla, measurement_bit, z_measurement, weight_5, flag_register, flag_meas_register, flags_used)
+        logger.info(f"Three-flagged stabiliser measurement, total flags used: {flags_used+3}")
+        return flags_used+3
 
     if w in {7, 8}:
         weight_7 = w == 7
         if t == 2:
-            measure_two_flagged_7_or_8(qc, stab, ancilla, measurement_bit, z_measurement, weight_7)
-            return
+            measure_two_flagged_7_or_8(qc, stab, ancilla, measurement_bit, z_measurement, weight_7, flag_register, flag_meas_register, flags_used)
+            logger.info(f"Three-flagged stabiliser measurement, total flags used: {flags_used+3}")
+            return flags_used+3
         if t == 3:
-            measure_three_flagged_7_or_8(qc, stab, ancilla, measurement_bit, z_measurement, weight_7)
-            return
+            measure_three_flagged_7_or_8(qc, stab, ancilla, measurement_bit, z_measurement, weight_7, flag_register, flag_meas_register, flags_used)
+            logger.info(f"Four-flagged stabiliser measurement, total flags used: {flags_used+4}")
+            return flags_used+4
 
     if w in {11, 12}:
         weight_11 = w == 11
         if t == 2:
-            measure_two_flagged_11_or_12(qc, stab, ancilla, measurement_bit, z_measurement, weight_11)
+            measure_two_flagged_11_or_12(qc, stab, ancilla, measurement_bit, z_measurement, weight_11, flag_register, flag_meas_register, flags_used)
+            logger.info(f"Five-flagged stabiliser measurement, total flags used: {flags_used+5}")
+            return flags_used+5
         if t == 3:
-            measure_three_flagged_12(qc, stab, ancilla, measurement_bit, z_measurement, weight_11)
-        return
+            measure_three_flagged_12(qc, stab, ancilla, measurement_bit, z_measurement, weight_11, flag_register, flag_meas_register, flags_used)
+            logger.info(f"Six-flagged stabiliser measurement, total flags used: {flags_used+6}")
+            return flags_used+6
 
     if t == 2:
-        measure_two_flagged_general(qc, stab, ancilla, measurement_bit, z_measurement)
-        return
+        n_flags = measure_two_flagged_general(qc, stab, ancilla, measurement_bit, z_measurement, flag_register, flag_meas_register, flags_used)
+        logger.info(f"General-flagged stabiliser measurement, total flags used: {flags_used+n_flags}")
+        return flags_used + n_flags
 
     msg = f"Flagged measurement for w={w} and t={t} not implemented."
     raise NotImplementedError(msg)
@@ -683,7 +693,10 @@ def measure_two_flagged_general(
     ancilla: AncillaQubit,
     measurement_bit: Clbit,
     z_measurement: bool = True,
-) -> None:
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
+) -> int:
     """Measure a 2-flagged stabilizer using the scheme of https://arxiv.org/abs/1708.02246 (page 13).
 
     Args:
@@ -693,24 +706,30 @@ def measure_two_flagged_general(
         measurement_bit: Classical bit to store the measurement result of the ancilla.
         z_measurement: Whether to measure the ancilla in the Z basis.
     """
+    
     n_flags = (len(stab) + 1) // 2 - 1
-    flag_reg = AncillaRegister(n_flags)
-    meas_reg = ClassicalRegister(n_flags)
+    
+    flag = flag_reg[flags_used:flags_used+n_flags]
+    flag_meas = flag_meas_register[flags_used:flags_used+n_flags]
+    
+    
+    # flag_reg = AncillaRegister(n_flags)
+    # meas_reg = ClassicalRegister(n_flags)
 
-    qc.add_register(flag_reg)
-    qc.add_register(meas_reg)
+    # qc.add_register(flag_reg)
+    # qc.add_register(meas_reg)
 
     if not z_measurement:
         qc.h(ancilla)
 
     _ancilla_cnot(qc, stab[0], ancilla, z_measurement)
 
-    _flag_init(qc, flag_reg[0], z_measurement)
-    _ancilla_cnot(qc, flag_reg[0], ancilla, z_measurement)
+    _flag_init(qc, flag[0], z_measurement)
+    _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
 
     _ancilla_cnot(qc, stab[1], ancilla, z_measurement)
-    _flag_init(qc, flag_reg[1], z_measurement)
-    _ancilla_cnot(qc, flag_reg[1], ancilla, z_measurement)
+    _flag_init(qc, flag[1], z_measurement)
+    _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
 
     cnots = 2
     flags = 2
@@ -718,37 +737,39 @@ def measure_two_flagged_general(
         _ancilla_cnot(qc, q, ancilla, z_measurement)
         cnots += 1
         if cnots % 2 == 0 and cnots < len(stab) - 2:
-            _flag_init(qc, flag_reg[flags], z_measurement)
-            _ancilla_cnot(qc, flag_reg[flags], ancilla, z_measurement)
+            _flag_init(qc, flag[flags], z_measurement)
+            _ancilla_cnot(qc, flag[flags], ancilla, z_measurement)
         if cnots >= 7 and cnots % 2 == 1:
-            _ancilla_cnot(qc, flag_reg[flags - 2], ancilla, z_measurement)
-            _flag_measure(qc, flag_reg[flags - 2], meas_reg[flags - 2], z_measurement)
+            _ancilla_cnot(qc, flag[flags - 2], ancilla, z_measurement)
+            _flag_measure(qc, flag[flags - 2], flag_meas[flags - 2], z_measurement)
         if cnots % 2 == 0 and cnots < len(stab) - 2:
             flags += 1
 
-    _ancilla_cnot(qc, flag_reg[0], ancilla, z_measurement)
-    _flag_measure(qc, flag_reg[0], meas_reg[0], z_measurement)
+    _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[-2], ancilla, z_measurement)
 
     cnots += 1
     if cnots >= 7 and cnots % 2 == 1:
-        _ancilla_cnot(qc, flag_reg[flags - 1], ancilla, z_measurement)
-        _flag_measure(qc, flag_reg[flags - 1], meas_reg[flags - 1], z_measurement)
+        _ancilla_cnot(qc, flag[flags - 1], ancilla, z_measurement)
+        _flag_measure(qc, flag[flags - 1], flag_meas[flags - 1], z_measurement)
 
-    _ancilla_cnot(qc, flag_reg[1], ancilla, z_measurement)
-    _flag_measure(qc, flag_reg[1], meas_reg[1], z_measurement)
+    _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     _ancilla_cnot(qc, stab[-1], ancilla, z_measurement)
 
     cnots += 1
     if cnots >= 7 and cnots % 2 == 1:
-        _ancilla_cnot(qc, flag_reg[flags - 1], ancilla, z_measurement)
-        _flag_measure(qc, flag_reg[flags - 1], meas_reg[flags - 1], z_measurement)
+        _ancilla_cnot(qc, flag[flags - 1], ancilla, z_measurement)
+        _flag_measure(qc, flag[flags - 1], flag_meas[flags - 1], z_measurement)
     if not z_measurement:
         qc.h(ancilla)
 
     qc.measure(ancilla, measurement_bit)
+    
+    return n_flags
 
 
 def measure_two_flagged_4(
@@ -757,6 +778,9 @@ def measure_two_flagged_4(
     ancilla: AncillaQubit,
     measurement_bit: Clbit,
     z_measurement: bool = True,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a 2-flagged weight 4 stabilizer. In this case only one flag is required.
 
@@ -768,12 +792,16 @@ def measure_two_flagged_4(
         z_measurement: Whether to measure the ancilla in the Z basis.
     """
     assert len(stab) == 4
-    flag_reg = AncillaRegister(1)
-    meas_reg = ClassicalRegister(1)
-    qc.add_register(flag_reg)
-    qc.add_register(meas_reg)
-    flag = flag_reg[0]
-    flag_meas = meas_reg[0]
+    
+    flag = flag_reg[flags_used]
+    flag_meas = flag_meas_register[flags_used]
+    
+    # flag_reg = AncillaRegister(1)
+    # meas_reg = ClassicalRegister(1)
+    # qc.add_register(flag_reg)
+    # qc.add_register(meas_reg)
+    # flag = flag_reg[0]
+    # flag_meas = meas_reg[0]
 
     if not z_measurement:
         qc.h(ancilla)
@@ -803,6 +831,9 @@ def measure_two_flagged_5_or_6(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_5: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a two-flagged weight 6 stabilizer using an optimized scheme.
 
@@ -815,11 +846,15 @@ def measure_two_flagged_5_or_6(
         weight_5: Whether the stabilizer has weight 5.
     """
     assert len(stab) == 6 or (len(stab) == 5 and weight_5)
-    flag = AncillaRegister(2)
-    meas = ClassicalRegister(2)
+    
+    flag = flag_reg[flags_used:flags_used+2]
+    flag_meas = flag_meas_register[flags_used:flags_used+2]
+    
+    # flag = AncillaRegister(2)
+    # meas = ClassicalRegister(2)
 
-    qc.add_register(flag)
-    qc.add_register(meas)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -838,12 +873,12 @@ def measure_two_flagged_5_or_6(
     _ancilla_cnot(qc, stab[3], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[4], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     if not weight_5:
         _ancilla_cnot(qc, stab[5], ancilla, z_measurement)
@@ -860,6 +895,10 @@ def measure_w_flagged_5_or_6(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_5: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
+    
 ) -> None:
     """Measure a w-flagged weight 6 stabilizer using an optimized scheme.
 
@@ -872,11 +911,15 @@ def measure_w_flagged_5_or_6(
         weight_5: Whether the stabilizer has weight 5.
     """
     assert len(stab) == 6 or (len(stab) == 5 and weight_5)
-    flag = AncillaRegister(3)
-    meas = ClassicalRegister(3)
+    
+    flag = flag_reg[flags_used:flags_used+3]
+    flag_meas = flag_meas_register[flags_used:flags_used+3]
+    
+    # flag = AncillaRegister(3)
+    # meas = ClassicalRegister(3)
 
-    qc.add_register(flag)
-    qc.add_register(meas)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -898,15 +941,15 @@ def measure_w_flagged_5_or_6(
     _ancilla_cnot(qc, stab[3], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[4], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[2], ancilla, z_measurement)
-    _flag_measure(qc, flag[2], meas[2], z_measurement)
+    _flag_measure(qc, flag[2], flag_meas[2], z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     if not weight_5:
         _ancilla_cnot(qc, stab[5], ancilla, z_measurement)
@@ -923,6 +966,9 @@ def measure_two_flagged_7_or_8(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_7: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a two-flagged weight 8 stabilizer using an optimized scheme.
 
@@ -935,10 +981,14 @@ def measure_two_flagged_7_or_8(
         weight_7: Whether the stabilizer has weight 7.
     """
     assert len(stab) == 8 or (len(stab) == 7 and weight_7)
-    flag = AncillaRegister(3)
-    meas = ClassicalRegister(3)
-    qc.add_register(flag)
-    qc.add_register(meas)
+    
+    flag = flag_reg[flags_used:flags_used+3]
+    flag_meas = flag_meas_register[flags_used:flags_used+3]
+    
+    # flag = AncillaRegister(3)
+    # meas = ClassicalRegister(3)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -963,15 +1013,15 @@ def measure_two_flagged_7_or_8(
     _ancilla_cnot(qc, stab[5], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[6], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[2], ancilla, z_measurement)
-    _flag_measure(qc, flag[2], meas[2], z_measurement)
+    _flag_measure(qc, flag[2], flag_meas[2], z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     if not weight_7:
         _ancilla_cnot(qc, stab[7], ancilla, z_measurement)
@@ -988,6 +1038,9 @@ def measure_three_flagged_7_or_8(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_7: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a three-flagged weight 8 stabilizer using an optimized scheme.
 
@@ -1000,10 +1053,13 @@ def measure_three_flagged_7_or_8(
         weight_7: Whether the stabilizer has weight 7.
     """
     assert len(stab) == 8 or (len(stab) == 7 and weight_7)
-    flag = AncillaRegister(4)
-    meas = ClassicalRegister(4)
-    qc.add_register(flag)
-    qc.add_register(meas)
+    
+    flag = flag_reg[flags_used:flags_used+4]
+    flag_meas = flag_meas_register[flags_used:flags_used+4]
+    # flag = AncillaRegister(4)
+    # meas = ClassicalRegister(4)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -1029,21 +1085,21 @@ def measure_three_flagged_7_or_8(
     _ancilla_cnot(qc, flag[3], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[4], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[2], ancilla, z_measurement)
-    _flag_measure(qc, flag[2], meas[2], z_measurement)
+    _flag_measure(qc, flag[2], flag_meas[2], z_measurement)
 
     _ancilla_cnot(qc, stab[5], ancilla, z_measurement)
     _ancilla_cnot(qc, stab[6], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     _ancilla_cnot(qc, flag[3], ancilla, z_measurement)
-    _flag_measure(qc, flag[3], meas[3], z_measurement)
+    _flag_measure(qc, flag[3], flag_meas[3], z_measurement)
 
     if not weight_7:
         _ancilla_cnot(qc, stab[7], ancilla, z_measurement)
@@ -1060,6 +1116,9 @@ def measure_two_flagged_11_or_12(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_11: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a two-flagged weight 12 stabilizer using an optimized scheme.
 
@@ -1072,10 +1131,13 @@ def measure_two_flagged_11_or_12(
         weight_11: Whether the stabilizer has weight 11.
     """
     assert len(stab) == 12 or (len(stab) == 11 and weight_11)
-    flag = AncillaRegister(5)
-    meas = ClassicalRegister(5)
-    qc.add_register(flag)
-    qc.add_register(meas)
+    
+    flag = flag_reg[flags_used:flags_used+5]
+    flag_meas = flag_meas_register[flags_used:flags_used+5]
+    # flag = AncillaRegister(5)
+    # meas = ClassicalRegister(5)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -1105,7 +1167,7 @@ def measure_two_flagged_11_or_12(
     _ancilla_cnot(qc, stab[6], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[2], ancilla, z_measurement)
-    _flag_measure(qc, flag[2], meas[2], z_measurement)
+    _flag_measure(qc, flag[2], flag_meas[2], z_measurement)
 
     _ancilla_cnot(qc, stab[7], ancilla, z_measurement)
 
@@ -1115,20 +1177,20 @@ def measure_two_flagged_11_or_12(
     _ancilla_cnot(qc, stab[8], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[3], ancilla, z_measurement)
-    _flag_measure(qc, flag[3], meas[3], z_measurement)
+    _flag_measure(qc, flag[3], flag_meas[3], z_measurement)
 
     _ancilla_cnot(qc, stab[9], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[10], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     _ancilla_cnot(qc, flag[4], ancilla, z_measurement)
-    _flag_measure(qc, flag[4], meas[4], z_measurement)
+    _flag_measure(qc, flag[4], flag_meas[4], z_measurement)
 
     if not weight_11:
         _ancilla_cnot(qc, stab[11], ancilla, z_measurement)
@@ -1145,6 +1207,9 @@ def measure_three_flagged_12(
     measurement_bit: Clbit,
     z_measurement: bool = True,
     weight_11: bool = False,
+    flag_reg: AncillaRegister = None,
+    flag_meas_register: ClassicalRegister = None,
+    flags_used: int = 0
 ) -> None:
     """Measure a three-flagged weight 12 stabilizer using an optimized scheme.
 
@@ -1157,10 +1222,13 @@ def measure_three_flagged_12(
         weight_11: Whether the stabilizer has weight 11.
     """
     assert len(stab) == 12 or (len(stab) == 11 and weight_11)
-    flag = AncillaRegister(6)
-    meas = ClassicalRegister(6)
-    qc.add_register(flag)
-    qc.add_register(meas)
+    
+    flag = flag_reg[flags_used:flags_used+6]
+    flag_meas = flag_meas_register[flags_used:flags_used+6]
+    # flag = AncillaRegister(6)
+    # meas = ClassicalRegister(6)
+    # qc.add_register(flag)
+    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -1187,7 +1255,7 @@ def measure_three_flagged_12(
     _ancilla_cnot(qc, stab[4], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[5], ancilla, z_measurement)
-    _flag_measure(qc, flag[5], meas[5], z_measurement)
+    _flag_measure(qc, flag[5], flag_meas[5], z_measurement)
 
     _ancilla_cnot(qc, stab[5], ancilla, z_measurement)
 
@@ -1197,7 +1265,7 @@ def measure_three_flagged_12(
     _ancilla_cnot(qc, stab[6], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[2], ancilla, z_measurement)
-    _flag_measure(qc, flag[2], meas[2], z_measurement)
+    _flag_measure(qc, flag[2], flag_meas[2], z_measurement)
 
     _ancilla_cnot(qc, stab[7], ancilla, z_measurement)
 
@@ -1207,20 +1275,20 @@ def measure_three_flagged_12(
     _ancilla_cnot(qc, stab[8], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[3], ancilla, z_measurement)
-    _flag_measure(qc, flag[3], meas[3], z_measurement)
+    _flag_measure(qc, flag[3], flag_meas[3], z_measurement)
 
     _ancilla_cnot(qc, stab[9], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[0], ancilla, z_measurement)
-    _flag_measure(qc, flag[0], meas[0], z_measurement)
+    _flag_measure(qc, flag[0], flag_meas[0], z_measurement)
 
     _ancilla_cnot(qc, stab[10], ancilla, z_measurement)
 
     _ancilla_cnot(qc, flag[4], ancilla, z_measurement)
-    _flag_measure(qc, flag[4], meas[4], z_measurement)
+    _flag_measure(qc, flag[4], flag_meas[4], z_measurement)
 
     _ancilla_cnot(qc, flag[1], ancilla, z_measurement)
-    _flag_measure(qc, flag[1], meas[1], z_measurement)
+    _flag_measure(qc, flag[1], flag_meas[1], z_measurement)
 
     if not weight_11:
         _ancilla_cnot(qc, stab[11], ancilla, z_measurement)
