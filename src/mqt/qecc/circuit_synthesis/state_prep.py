@@ -713,8 +713,7 @@ def _heuristic_layer(
 
 def _measure_ft_x(qc: QuantumCircuit, x_anc: AncillaRegister, x_c: ClassicalRegister, x_measurements: npt.NDArray[np.int8], t: int, flags: bool = False,
                   flag_register: AncillaRegister = None, flag_meas_register: ClassicalRegister = None, flags_used: int = 0) -> None:
-   
-    # Needs to keep track of used flags but does not need to return the number
+    # needs to keep track of used flags but does not need to return the number
     for i, m in enumerate(x_measurements):
         stab = np.where(m != 0)[0]
         if flags:
@@ -728,9 +727,7 @@ def _measure_ft_x(qc: QuantumCircuit, x_anc: AncillaRegister, x_c: ClassicalRegi
 
 def _measure_ft_z(qc: QuantumCircuit, z_anc: AncillaRegister, z_c: ClassicalRegister, z_measurements: npt.NDArray[np.int8], t: int, flags: bool = False,
                    flag_register: AncillaRegister = None, flag_meas_register: ClassicalRegister = None, flags_used: int = 0) -> int:
-    
-    # Needs to return the number of used flags to pass to _measure_ft_x
-
+    # needs to return the number of used flags to pass to _measure_ft_x
     for i, m in enumerate(z_measurements):
         stab = np.where(m != 0)[0]
         if flags:
@@ -752,7 +749,6 @@ def _measure_ft_stabs(
     q = QuantumRegister(sp_circ.num_qubits, "q")
     measured_circ = QuantumCircuit(q)
     measured_circ.compose(sp_circ.circ.to_qiskit_circuit(), inplace=True)
-
     # We choose the following ordering of registers: z_anc, x_anc, flag    
     if len(z_measurements) != 0:
         num_z_anc = len(z_measurements)
@@ -761,19 +757,16 @@ def _measure_ft_stabs(
         measured_circ.add_register(z_anc)
         measured_circ.add_register(z_c)
     if len(x_measurements) != 0:
-            
         num_x_anc = len(x_measurements)
         x_anc = AncillaRegister(num_x_anc, "x_anc")
         x_c = ClassicalRegister(num_x_anc, "x_c")
         measured_circ.add_register(x_anc)
         measured_circ.add_register(x_c)
-    
     # Preallocate a flag register with n_flags qubits, where n_flags is some upper-bound register size (will be accounted for in Julia)
     n_flags = 75
     flag_reg = AncillaRegister(n_flags, "flag")
     flag_meas_reg = ClassicalRegister(n_flags)
     num_flags_used = 0
-    
     measured_circ.add_register(flag_reg)
     measured_circ.add_register(flag_meas_reg)
     
@@ -782,7 +775,6 @@ def _measure_ft_stabs(
             num_flags_used = _measure_ft_z(measured_circ, z_anc, z_c, z_measurements, t=sp_circ.max_z_errors, flags=flag_first_layer, flag_register = flag_reg, flag_meas_register = flag_meas_reg, flags_used = num_flags_used)
         if len(x_measurements) != 0:
             _measure_ft_x(measured_circ, x_anc, x_c, x_measurements, flags=True, t=sp_circ.max_x_errors, flag_register = flag_reg, flag_meas_register = flag_meas_reg, flags_used = num_flags_used)
-
     else:
         raise NotImplementedError(f"Currently, only {verify_x_first} is implemented.")
         _measure_ft_x(measured_circ, x_measurements, flags=flag_first_layer, t=sp_circ.max_x_errors)

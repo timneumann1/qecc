@@ -662,7 +662,7 @@ def measure_one_flagged(
     In this case only one flag is required.
     """
     
-    # No need to create the registers again, simply place the qubits at the current index
+    # no need to create the registers again, simply placing the qubits at the passed indices
     flag = flag_reg[flags_used]
     flag_meas = flag_meas_register[flags_used]
     
@@ -712,13 +712,6 @@ def measure_two_flagged_general(
     flag = flag_reg[flags_used:flags_used+n_flags]
     flag_meas = flag_meas_register[flags_used:flags_used+n_flags]
     
-    
-    # flag_reg = AncillaRegister(n_flags)
-    # meas_reg = ClassicalRegister(n_flags)
-
-    # qc.add_register(flag_reg)
-    # qc.add_register(meas_reg)
-
     if not z_measurement:
         qc.h(ancilla)
 
@@ -795,13 +788,6 @@ def measure_two_flagged_4(
     
     flag = flag_reg[flags_used]
     flag_meas = flag_meas_register[flags_used]
-    
-    # flag_reg = AncillaRegister(1)
-    # meas_reg = ClassicalRegister(1)
-    # qc.add_register(flag_reg)
-    # qc.add_register(meas_reg)
-    # flag = flag_reg[0]
-    # flag_meas = meas_reg[0]
 
     if not z_measurement:
         qc.h(ancilla)
@@ -849,12 +835,6 @@ def measure_two_flagged_5_or_6(
     
     flag = flag_reg[flags_used:flags_used+2]
     flag_meas = flag_meas_register[flags_used:flags_used+2]
-    
-    # flag = AncillaRegister(2)
-    # meas = ClassicalRegister(2)
-
-    # qc.add_register(flag)
-    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -914,12 +894,6 @@ def measure_w_flagged_5_or_6(
     
     flag = flag_reg[flags_used:flags_used+3]
     flag_meas = flag_meas_register[flags_used:flags_used+3]
-    
-    # flag = AncillaRegister(3)
-    # meas = ClassicalRegister(3)
-
-    # qc.add_register(flag)
-    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -984,11 +958,6 @@ def measure_two_flagged_7_or_8(
     
     flag = flag_reg[flags_used:flags_used+3]
     flag_meas = flag_meas_register[flags_used:flags_used+3]
-    
-    # flag = AncillaRegister(3)
-    # meas = ClassicalRegister(3)
-    # qc.add_register(flag)
-    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -1056,11 +1025,7 @@ def measure_three_flagged_7_or_8(
     
     flag = flag_reg[flags_used:flags_used+4]
     flag_meas = flag_meas_register[flags_used:flags_used+4]
-    # flag = AncillaRegister(4)
-    # meas = ClassicalRegister(4)
-    # qc.add_register(flag)
-    # qc.add_register(meas)
-
+    
     if not z_measurement:
         qc.h(ancilla)
 
@@ -1134,10 +1099,6 @@ def measure_two_flagged_11_or_12(
     
     flag = flag_reg[flags_used:flags_used+5]
     flag_meas = flag_meas_register[flags_used:flags_used+5]
-    # flag = AncillaRegister(5)
-    # meas = ClassicalRegister(5)
-    # qc.add_register(flag)
-    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
@@ -1225,10 +1186,6 @@ def measure_three_flagged_12(
     
     flag = flag_reg[flags_used:flags_used+6]
     flag_meas = flag_meas_register[flags_used:flags_used+6]
-    # flag = AncillaRegister(6)
-    # meas = ClassicalRegister(6)
-    # qc.add_register(flag)
-    # qc.add_register(meas)
 
     if not z_measurement:
         qc.h(ancilla)
