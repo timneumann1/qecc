@@ -22,7 +22,7 @@ def main() -> None:
     try:
         code = CSSCode(np.transpose(hx), distance=distance)
         if prep_method == "optimal":
-            encoding_circ = gate_optimal_prep_circuit(code, zero_state=True, max_timeout=16384) # default max_timeout is 3600s (1h);  will result in a total runtime of 1+2+4+...+16384 = 32767 ~ 9h (5 workers in parallel) 
+            encoding_circ = gate_optimal_prep_circuit(code, zero_state=True, max_timeout=16384) # default max_timeout is 3600s (1h); for 5 workers in parallel, `max_timeout=16384` yields total runtime of <= 1+2+4+...+16384 = 32767 ~ 9h 
         elif prep_method == "heuristic":
             encoding_circ = heuristic_prep_circuit(code, zero_state=True)
         print(qiskit.qasm2.dumps(encoding_circ.circ.to_qiskit_circuit())) # return the qasm string
